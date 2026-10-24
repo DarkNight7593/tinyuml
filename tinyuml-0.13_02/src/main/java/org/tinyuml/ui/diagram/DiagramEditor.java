@@ -41,6 +41,7 @@ import java.util.List;
 import javax.swing.AbstractAction;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.KeyStroke;
 import javax.swing.event.UndoableEditEvent;
 import javax.swing.event.UndoableEditListener;
@@ -66,6 +67,7 @@ import org.tinyuml.model.RelationEndType;
 import org.tinyuml.model.UmlClass;
 import org.tinyuml.ui.diagram.commands.ConvertConnectionTypeCommand;
 import org.tinyuml.util.AppCommandListener;
+import org.tinyuml.util.ApplicationResources;
 import org.tinyuml.ui.diagram.commands.DeleteElementCommand;
 import org.tinyuml.ui.diagram.commands.MoveElementCommand;
 import org.tinyuml.ui.diagram.commands.PasteElementCommand;
@@ -251,7 +253,29 @@ DiagramEditorNotification, DiagramOperations, NodeChangeListener {
    */
   public void deleteSelection() {
     Collection<DiagramElement> elements = getSelectedElements();
+    int selectedCount = elements.size();
+    if (selectedCount == 0) {
+      return;
+    }
+    if (selectedCount > 1 && !confirmMultipleSelectionDeletion(selectedCount)) {
+      return;
+    }
     execute(new DeleteElementCommand(this, elements));
+  }
+
+  /**
+   * Asks for confirmation before deleting more than one selected element.
+   * @param selectedCount number of selected elements
+   * @return true if the user confirmed the deletion
+   */
+  private boolean confirmMultipleSelectionDeletion(int selectedCount) {
+    ApplicationResources resources = ApplicationResources.getInstance();
+    String message = String.format(
+      resources.getString("confirm.delete.multiple.message"), selectedCount);
+    return JOptionPane.showConfirmDialog(this, message,
+      resources.getString("confirm.delete.multiple.title"),
+      JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE)
+      == JOptionPane.YES_OPTION;
   }
   /**
    * Pastes into this diagram the handed Elements

@@ -58,6 +58,7 @@ import org.tinyuml.ui.commands.ModelWriter;
 import org.tinyuml.ui.commands.PngExporter;
 import org.tinyuml.ui.commands.SvgExporter;
 import org.tinyuml.ui.diagram.DiagramEditor;
+import org.tinyuml.ui.diagram.DiagramElementCounter;
 import org.tinyuml.ui.diagram.EditorMouseEvent;
 import org.tinyuml.ui.diagram.EditorStateListener;
 import org.tinyuml.ui.diagram.SelectionListener;
@@ -79,6 +80,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
 
   private JTabbedPane tabbedPane;
   private JLabel coordLabel = new JLabel("    ");
+  private JLabel elementCountLabel = new JLabel("    ");
   private JLabel memLabel = new JLabel("    ");
   private UmlModel umlModel;
   private DiagramEditor currentEditor;
@@ -213,6 +215,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
                               label.getText());
       }
     });
+    updateElementCount(currentEditor);
   }
 
   /**
@@ -241,6 +244,8 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
   private void installStatusbar() {
     JPanel statusbar = new JPanel(new BorderLayout());
     statusbar.add(coordLabel, BorderLayout.WEST);
+    elementCountLabel.setHorizontalAlignment(JLabel.CENTER);
+    statusbar.add(elementCountLabel, BorderLayout.CENTER);
     statusbar.add(memLabel, BorderLayout.EAST);
     getContentPane().add(statusbar, BorderLayout.SOUTH);
   }
@@ -284,6 +289,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
     // spring loading is implemented here
     staticToolbarManager.doClick("SELECT_MODE");
     updateMenuAndToolbars(editor);
+    updateElementCount(editor);
   }
 
   /**
@@ -291,6 +297,20 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
    */
   public void elementRemoved(DiagramEditor editor) {
     updateMenuAndToolbars(editor);
+    updateElementCount(editor);
+  }
+
+  /**
+   * Updates the element summary for the active diagram.
+   * @param editor the editor whose diagram changed
+   */
+  private void updateElementCount(DiagramEditor editor) {
+    DiagramElementCounter.Counts counts =
+      DiagramElementCounter.count(editor.getDiagram());
+    elementCountLabel.setText(String.format(
+      getResourceString("statusbar.elementcount.format"),
+      counts.getTotal(), counts.getPackageCount(), counts.getClassCount(),
+      counts.getComponentCount(), counts.getNoteCount()));
   }
 
   /**

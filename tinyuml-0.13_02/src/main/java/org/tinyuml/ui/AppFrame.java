@@ -62,6 +62,7 @@ import org.tinyuml.ui.diagram.DiagramElementCounter;
 import org.tinyuml.ui.diagram.DiagramElementInfo;
 import org.tinyuml.ui.diagram.EditorMouseEvent;
 import org.tinyuml.ui.diagram.EditorStateListener;
+import org.tinyuml.ui.diagram.SelectedElementCounter;
 import org.tinyuml.ui.diagram.SelectionListener;
 import org.tinyuml.util.ApplicationResources;
 import org.tinyuml.util.MethodCall;
@@ -83,6 +84,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
   private JLabel coordLabel = new JLabel("    ");
   private JLabel elementCountLabel = new JLabel("    ");
   private JLabel selectionInfoLabel = new JLabel("    ");
+  private JLabel selectedCountLabel = new JLabel("    ");
   private JLabel memLabel = new JLabel("    ");
   private UmlModel umlModel;
   private DiagramEditor currentEditor;
@@ -218,7 +220,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
       }
     });
     updateElementCount(currentEditor);
-    updateSelectionInfo(currentEditor);
+    updateSelectionStatus(currentEditor);
   }
 
   /**
@@ -246,8 +248,11 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
    */
   private void installStatusbar() {
     JPanel statusbar = new JPanel(new BorderLayout());
+    JPanel selectionStatusbar = new JPanel(new BorderLayout());
     selectionInfoLabel.setHorizontalAlignment(JLabel.CENTER);
-    statusbar.add(selectionInfoLabel, BorderLayout.NORTH);
+    selectionStatusbar.add(selectedCountLabel, BorderLayout.WEST);
+    selectionStatusbar.add(selectionInfoLabel, BorderLayout.CENTER);
+    statusbar.add(selectionStatusbar, BorderLayout.NORTH);
     statusbar.add(coordLabel, BorderLayout.WEST);
     elementCountLabel.setHorizontalAlignment(JLabel.CENTER);
     statusbar.add(elementCountLabel, BorderLayout.CENTER);
@@ -285,7 +290,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
    */
   public void stateChanged(DiagramEditor editor) {
     updateMenuAndToolbars(editor);
-    updateSelectionInfo(editor);
+    updateSelectionStatus(editor);
   }
 
   /**
@@ -350,16 +355,19 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
     toolbarmanager.enableButton("COPY", hasSelection);
      
     toolbarmanager.enableButton("DELETE", hasSelection);
-    updateSelectionInfo(getCurrentEditor());
+    updateSelectionStatus(getCurrentEditor());
   }
 
   /**
-   * Updates the category and name of the selected element.
+   * Updates the selected element count, category and name.
    * @param editor the editor whose selection changed
    */
-  private void updateSelectionInfo(DiagramEditor editor) {
+  private void updateSelectionStatus(DiagramEditor editor) {
     Collection<DiagramElement> selectedElements =
       editor.getSelectedElements();
+    int selectedCount = SelectedElementCounter.count(selectedElements);
+    selectedCountLabel.setText(String.format(
+      getResourceString("statusbar.selectedcount.format"), selectedCount));
     if (selectedElements.size() == 0) {
       selectionInfoLabel.setText(
         getResourceString("statusbar.selection.none"));

@@ -23,6 +23,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
@@ -32,6 +33,7 @@ import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.awt.geom.Dimension2D;
 import java.awt.geom.Point2D;
+import java.awt.geom.Rectangle2D;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.util.ArrayList;
@@ -42,6 +44,7 @@ import javax.swing.AbstractAction;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
+import javax.swing.JViewport;
 import javax.swing.KeyStroke;
 import javax.swing.event.UndoableEditEvent;
 import javax.swing.event.UndoableEditListener;
@@ -100,6 +103,8 @@ DiagramEditorNotification, DiagramOperations, NodeChangeListener {
   private static final double MARGIN_LEFT = 25;
   private static final double MARGIN_RIGHT = 30;
   private static final double MARGIN_BOTTOM = 30;
+  private static final double FIT_PADDING = 30;
+  private static final double MAX_FIT_SCALE = 1.5;
   private transient DrawingContext drawingContext = new DrawingContextImpl();
   private transient EditorMode editorMode;
   private transient SelectionHandler selectionHandler;
@@ -206,10 +211,13 @@ DiagramEditorNotification, DiagramOperations, NodeChangeListener {
    * This also influences the scroll pane which the component is contained in.
    */
   private void setToDiagramSize() {
+    double scaleFactor = scaling.getScaleFactor();
     setPreferredSize(new Dimension(
-      (int) (diagram.getSize().getWidth() + MARGIN_RIGHT + MARGIN_LEFT),
-      (int) (diagram.getSize().getHeight() + MARGIN_BOTTOM + MARGIN_TOP)));
-    invalidate();
+      (int) Math.ceil((diagram.getSize().getWidth() + MARGIN_RIGHT +
+        MARGIN_LEFT) * scaleFactor),
+      (int) Math.ceil((diagram.getSize().getHeight() + MARGIN_BOTTOM +
+        MARGIN_TOP) * scaleFactor)));
+    revalidate();
   }
 
   /**
@@ -361,15 +369,17 @@ DiagramEditorNotification, DiagramOperations, NodeChangeListener {
 
     boolean gridVisible = diagram.isGridVisible();
     Color background = Color.GRAY;
+    Rectangle drawingBounds = bounds;
     if (toScreen) {
       // Scaling is only interesting if rendering to screen
       scaleDiagram(g2d);
+      drawingBounds = toDiagramBounds(bounds);
     } else {
       diagram.setGridVisible(false);
       background = Color.WHITE;
     }
-    clearScreen(g, bounds, background);
-    drawingContext.setGraphics2D(g2d, bounds);
+    clearScreen(g, drawingBounds, background);
+    drawingContext.setGraphics2D(g2d, drawingBounds);
     diagram.draw(drawingContext);
     // Draw user interface specific elements (e.g. selections)
     if (toScreen) {
@@ -424,6 +434,20 @@ DiagramEditorNotification, DiagramOperations, NodeChangeListener {
   private void scaleDiagram(Graphics2D g2d) {
     double scaleFactor = scaling.getScaleFactor();
     g2d.scale(scaleFactor, scaleFactor);
+  }
+
+  /**
+   * Converts a screen clip rectangle to diagram coordinates.
+   * @param screenBounds the bounds reported by Swing
+   * @return the equivalent bounds before applying the zoom
+   */
+  private Rectangle toDiagramBounds(Rectangle screenBounds) {
+    double scaleFactor = scaling.getScaleFactor();
+    int x = (int) Math.floor(screenBounds.getX() / scaleFactor);
+    int y = (int) Math.floor(screenBounds.getY() / scaleFactor);
+    int width = (int) Math.ceil(screenBounds.getWidth() / scaleFactor);
+    int height = (int) Math.ceil(screenBounds.getHeight() / scaleFactor);
+    return new Rectangle(x, y, width, height);
   }
 
   // ************************************************************************
@@ -617,7 +641,66 @@ DiagramEditorNotification, DiagramOperations, NodeChangeListener {
    */
   public void setScaling(Scaling aScaling) {
     scaling = aScaling;
+    setToDiagramSize();
     repaint();
+  }
+
+  /**
+   * Fits all diagram elements in the visible work area without modifying the
+   * model. The operation only changes the editor scaling and scroll position.
+   */
+  public void fitToWindow() {
+    if (!(getParent() instanceof JViewport)) {
+      return;
+    }
+    JViewport viewport = (JViewport) getParent();
+    Rectangle2D elementBounds = getDiagramElementBounds();
+    if (elementBounds == null) {
+      setScaling(Scaling.SCALING_100);
+      viewport.setViewPosition(new Point(0, 0));
+      return;
+    }
+
+    Dimension viewportSize = viewport.getExtentSize();
+    double width = Math.max(1.0, elementBounds.getWidth());
+    double height = Math.max(1.0, elementBounds.getHeight());
+    double availableWidth = Math.max(1.0,
+      viewportSize.getWidth() - FIT_PADDING * 2);
+    double availableHeight = Math.max(1.0,
+      viewportSize.getHeight() - FIT_PADDING * 2);
+    double scaleFactor = Math.min(availableWidth / width,
+      availableHeight / height);
+    scaleFactor = Math.min(scaleFactor, MAX_FIT_SCALE);
+    setScaling(Scaling.create(scaleFactor));
+
+    int viewX = (int) Math.round(elementBounds.getCenterX() * scaleFactor -
+      viewportSize.getWidth() / 2.0);
+    int viewY = (int) Math.round(elementBounds.getCenterY() * scaleFactor -
+      viewportSize.getHeight() / 2.0);
+    int maxX = Math.max(0, getPreferredSize().width - viewportSize.width);
+    int maxY = Math.max(0, getPreferredSize().height - viewportSize.height);
+    viewport.setViewPosition(new Point(Math.max(0, Math.min(viewX, maxX)),
+      Math.max(0, Math.min(viewY, maxY))));
+  }
+
+  /**
+   * Returns the union of the bounds of all top-level diagram elements.
+   * Package bounds already include their nested elements.
+   * @return the element bounds or null if the diagram is empty
+   */
+  private Rectangle2D getDiagramElementBounds() {
+    Rectangle2D result = null;
+    for (DiagramElement element : diagram.getChildren()) {
+      Rectangle2D bounds = element.getAbsoluteBounds();
+      if (bounds != null) {
+        if (result == null) {
+          result = (Rectangle2D) bounds.clone();
+        } else {
+          Rectangle2D.union(result, bounds, result);
+        }
+      }
+    }
+    return result;
   }
 
   /**

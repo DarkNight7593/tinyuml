@@ -43,6 +43,20 @@ public final class Scaling {
   }
 
   /**
+   * Creates a scaling with a custom factor.
+   * @param scaleFactor the positive scaling factor
+   * @return a scaling configured with the specified factor
+   * @throws IllegalArgumentException if the factor is not positive
+   */
+  public static Scaling create(double scaleFactor) {
+    if (scaleFactor <= 0 || Double.isNaN(scaleFactor) ||
+        Double.isInfinite(scaleFactor)) {
+      throw new IllegalArgumentException("scaleFactor must be positive");
+    }
+    return new Scaling(scaleFactor);
+  }
+
+  /**
    * Returns the scaling factor.
    * @return the scaling factor
    */

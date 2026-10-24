@@ -58,7 +58,7 @@ import org.tinyuml.ui.commands.ModelWriter;
 import org.tinyuml.ui.commands.PngExporter;
 import org.tinyuml.ui.commands.SvgExporter;
 import org.tinyuml.ui.diagram.DiagramEditor;
-import org.tinyuml.ui.diagram.DiagramElementCounter;
+import org.tinyuml.ui.diagram.DiagramElementIndex;
 import org.tinyuml.ui.diagram.EditorMouseEvent;
 import org.tinyuml.ui.diagram.EditorStateListener;
 import org.tinyuml.ui.diagram.SelectionListener;
@@ -94,6 +94,8 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
   private Collection<DiagramElement> lastCopiedElements;
   private transient Map<String, MethodCall> selectorMap =
     new HashMap<String, MethodCall>();
+  private transient Map<DiagramEditor, DiagramElementIndex> elementIndexes =
+    new HashMap<DiagramEditor, DiagramElementIndex>();
 
 
   /**
@@ -111,6 +113,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
     toolbarmanager = null;
     menumanager = null;
     currentFile = null;
+    elementIndexes = new HashMap<DiagramEditor, DiagramElementIndex>();
     initSelectorMap();
   }
 
@@ -194,6 +197,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
    */
   private void createEditor(StructureDiagram diagram) {
     currentEditor = new DiagramEditor(this, diagram);
+    elementIndexes.put(currentEditor, new DiagramElementIndex(diagram));
     currentEditor.addEditorStateListener(this);
     currentEditor.addSelectionListener(this);
     currentEditor.addAppCommandListener(editorDispatcher);
@@ -285,18 +289,20 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
   /**
    * {@inheritDoc}
    */
-  public void elementAdded(DiagramEditor editor) {
+  public void elementAdded(DiagramEditor editor, DiagramElement element) {
     // spring loading is implemented here
     staticToolbarManager.doClick("SELECT_MODE");
     updateMenuAndToolbars(editor);
+    getElementIndex(editor).add(element);
     updateElementCount(editor);
   }
 
   /**
    * {@inheritDoc}
    */
-  public void elementRemoved(DiagramEditor editor) {
+  public void elementRemoved(DiagramEditor editor, DiagramElement element) {
     updateMenuAndToolbars(editor);
+    getElementIndex(editor).remove(element);
     updateElementCount(editor);
   }
 
@@ -305,12 +311,25 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
    * @param editor the editor whose diagram changed
    */
   private void updateElementCount(DiagramEditor editor) {
-    DiagramElementCounter.Counts counts =
-      DiagramElementCounter.count(editor.getDiagram());
+    DiagramElementIndex index = getElementIndex(editor);
     elementCountLabel.setText(String.format(
       getResourceString("statusbar.elementcount.format"),
-      counts.getTotal(), counts.getPackageCount(), counts.getClassCount(),
-      counts.getComponentCount(), counts.getNoteCount()));
+      index.getTotal(), index.getPackageCount(), index.getClassCount(),
+      index.getComponentCount(), index.getNoteCount()));
+  }
+
+  /**
+   * Returns the incremental index that belongs to an editor.
+   * @param editor the diagram editor
+   * @return the editor's element index
+   */
+  private DiagramElementIndex getElementIndex(DiagramEditor editor) {
+    DiagramElementIndex index = elementIndexes.get(editor);
+    if (index == null) {
+      index = new DiagramElementIndex(editor.getDiagram());
+      elementIndexes.put(editor, index);
+    }
+    return index;
   }
 
   /**
@@ -443,6 +462,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
       umlModel.addDiagram(diagram);
       diagram.setLabelText("Class diagram 1");
       tabbedPane.removeAll();
+      elementIndexes.clear();
       createEditor(diagram);
     }
   }
@@ -549,6 +569,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
           currentFile = fileChooser.getSelectedFile();
           umlModel = ModelReader.getInstance().readModel(currentFile);
           tabbedPane.removeAll();
+          elementIndexes.clear();
           createEditor((StructureDiagram) umlModel.getDiagrams().get(0));
           updateFrameTitle();
         } catch (IOException ex) {

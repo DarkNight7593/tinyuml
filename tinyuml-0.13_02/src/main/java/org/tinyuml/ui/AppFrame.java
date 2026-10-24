@@ -59,6 +59,7 @@ import org.tinyuml.ui.commands.PngExporter;
 import org.tinyuml.ui.commands.SvgExporter;
 import org.tinyuml.ui.diagram.DiagramEditor;
 import org.tinyuml.ui.diagram.DiagramElementCounter;
+import org.tinyuml.ui.diagram.DiagramElementInfo;
 import org.tinyuml.ui.diagram.EditorMouseEvent;
 import org.tinyuml.ui.diagram.EditorStateListener;
 import org.tinyuml.ui.diagram.SelectionListener;
@@ -81,6 +82,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
   private JTabbedPane tabbedPane;
   private JLabel coordLabel = new JLabel("    ");
   private JLabel elementCountLabel = new JLabel("    ");
+  private JLabel selectionInfoLabel = new JLabel("    ");
   private JLabel memLabel = new JLabel("    ");
   private UmlModel umlModel;
   private DiagramEditor currentEditor;
@@ -216,6 +218,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
       }
     });
     updateElementCount(currentEditor);
+    updateSelectionInfo(currentEditor);
   }
 
   /**
@@ -243,6 +246,8 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
    */
   private void installStatusbar() {
     JPanel statusbar = new JPanel(new BorderLayout());
+    selectionInfoLabel.setHorizontalAlignment(JLabel.CENTER);
+    statusbar.add(selectionInfoLabel, BorderLayout.NORTH);
     statusbar.add(coordLabel, BorderLayout.WEST);
     elementCountLabel.setHorizontalAlignment(JLabel.CENTER);
     statusbar.add(elementCountLabel, BorderLayout.CENTER);
@@ -280,6 +285,7 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
    */
   public void stateChanged(DiagramEditor editor) {
     updateMenuAndToolbars(editor);
+    updateSelectionInfo(editor);
   }
 
   /**
@@ -344,6 +350,38 @@ implements EditorStateListener, AppCommandListener, SelectionListener {
     toolbarmanager.enableButton("COPY", hasSelection);
      
     toolbarmanager.enableButton("DELETE", hasSelection);
+    updateSelectionInfo(getCurrentEditor());
+  }
+
+  /**
+   * Updates the category and name of the selected element.
+   * @param editor the editor whose selection changed
+   */
+  private void updateSelectionInfo(DiagramEditor editor) {
+    Collection<DiagramElement> selectedElements =
+      editor.getSelectedElements();
+    if (selectedElements.size() == 0) {
+      selectionInfoLabel.setText(
+        getResourceString("statusbar.selection.none"));
+    } else if (selectedElements.size() > 1) {
+      selectionInfoLabel.setText(
+        getResourceString("statusbar.selection.multiple"));
+    } else {
+      DiagramElement element = selectedElements.iterator().next();
+      DiagramElementInfo.Info info = DiagramElementInfo.describe(element);
+      if (info == null) {
+        selectionInfoLabel.setText(
+          getResourceString("statusbar.selection.none"));
+      } else {
+        String name = info.getName();
+        if (name.length() == 0) {
+          name = getResourceString("statusbar.selection.unnamed");
+        }
+        selectionInfoLabel.setText(String.format(
+          getResourceString("statusbar.selection.format"),
+          info.getCategory(), name));
+      }
+    }
   }
 
   // ************************************************************************

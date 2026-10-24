@@ -796,7 +796,7 @@ DiagramEditorNotification, DiagramOperations, NodeChangeListener {
    */
   public void notifyElementAdded(DiagramElement element) {
     for (EditorStateListener l : editorListeners) {
-      l.elementAdded(this);
+      l.elementAdded(this, element);
     }
     repaint();
   }
@@ -806,7 +806,7 @@ DiagramEditorNotification, DiagramOperations, NodeChangeListener {
    */
   public void notifyElementRemoved(DiagramElement element) {
     for (EditorStateListener l : editorListeners) {
-      l.elementRemoved(this);
+      l.elementRemoved(this, element);
     }
     selectionHandler.elementRemoved(element);
     repaint();

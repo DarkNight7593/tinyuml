@@ -19,6 +19,8 @@
  */
 package org.tinyuml.ui.diagram;
 
+import org.tinyuml.draw.DiagramElement;
+
 /**
  * An interface to report state changes within the diagram editor.
  */
@@ -40,12 +42,14 @@ public interface EditorStateListener {
   /**
    * An element was added.
    * @param editor the editor that sent the event
+   * @param element the element that was added
    */
-  void elementAdded(DiagramEditor editor);
+  void elementAdded(DiagramEditor editor, DiagramElement element);
 
   /**
    * An element was removed.
    * @param editor the editor that sent the event
+   * @param element the element that was removed
    */
-  void elementRemoved(DiagramEditor editor);
+  void elementRemoved(DiagramEditor editor, DiagramElement element);
 }
